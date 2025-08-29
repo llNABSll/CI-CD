@@ -1,0 +1,42 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: platform-rabbitmq
+    ports:
+      - "5672:5672"      # AMQP
+      - "15672:15672"    # UI RabbitMQ
+
+  customer-db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: customerdb
+    volumes:
+      - customer_pg:/var/lib/postgresql/data
+    healthcheck:                       # ✅ vérifie que la BDD est prête
+      test: ["CMD-SHELL", "pg_isready -U postgres -d customerdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  customer-api:
+    image: mspr/customer-api:dev
+    depends_on:
+      customer-db:
+        condition: service_healthy     # ✅ attend que la BDD soit prête
+      rabbitmq:
+        condition: service_started
+    restart: on-failure:5              # ✅ relance le conteneur en cas d'erreur
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: customerdb
+      POSTGRES_SERVER: customer-db
+      POSTGRES_PORT: 5432
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/%2F
+    ports:
+      - "8000:8000"
+
+volumes:
+  customer_pg:
