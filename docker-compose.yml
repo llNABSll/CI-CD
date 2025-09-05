@@ -2,10 +2,20 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     container_name: platform-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: app
+      RABBITMQ_DEFAULT_PASS: app
+      RABBITMQ_DEFAULT_VHOST: /
     ports:
       - "5672:5672"      # AMQP
       - "15672:15672"    # UI RabbitMQ
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # ---------------- CUSTOMER ----------------
   customer-db:
     image: postgres:15
     environment:
@@ -14,29 +24,114 @@ services:
       POSTGRES_DB: customerdb
     volumes:
       - customer_pg:/var/lib/postgresql/data
-    healthcheck:                       # ✅ vérifie que la BDD est prête
+    healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d customerdb"]
       interval: 5s
       timeout: 3s
       retries: 10
+    restart: unless-stopped
 
   customer-api:
+    build:
+      context: ../customer-api
+      dockerfile: Dockerfile
     image: mspr/customer-api:dev
     depends_on:
       customer-db:
-        condition: service_healthy     # ✅ attend que la BDD soit prête
+        condition: service_healthy
       rabbitmq:
-        condition: service_started
-    restart: on-failure:5              # ✅ relance le conteneur en cas d'erreur
+        condition: service_healthy      # ⬅️ attend que le broker soit prêt
+    restart: on-failure:5
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: customerdb
       POSTGRES_SERVER: customer-db
       POSTGRES_PORT: 5432
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/%2F
+      RABBITMQ_URL: amqp://app:app@rabbitmq:5672/%2F
     ports:
       - "8000:8000"
 
+  # ---------------- PRODUCT -----------------
+  product-db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: productdb
+    volumes:
+      - product_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d productdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  product-api:
+    build:
+      context: ../product-api
+      dockerfile: Dockerfile
+    image: mspr/product-api:dev
+    depends_on:
+      product-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: on-failure:5
+    environment:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@product-db:5432/productdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: productdb
+      POSTGRES_SERVER: product-db
+      POSTGRES_PORT: 5432
+      RABBITMQ_URL: amqp://app:app@rabbitmq:5672/%2F
+
+    ports:
+      - "8001:8000"
+
+  # ---------------- ORDER -------------------
+  order-db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: orderdb
+    volumes:
+      - order_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d orderdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  order-api:
+    build:
+      context: ../order-api
+      dockerfile: Dockerfile
+    image: mspr/order-api:dev
+    depends_on:
+      order-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: on-failure:5
+    environment:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@order-db:5432/orderdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: orderdb
+      POSTGRES_SERVER: order-db
+      POSTGRES_PORT: 5432
+      RABBITMQ_URL: amqp://app:app@rabbitmq:5672/%2F
+
+    ports:
+      - "8002:8000"
+
 volumes:
+  rabbitmq_data:
   customer_pg:
+  product_pg:
+  order_pg:
