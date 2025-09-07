@@ -1,0 +1,314 @@
+# -------------------- Networks & Volumes --------------------
+networks:
+  # Réseau d’edge exposé à Traefik
+  mspr:
+    external: true
+    name: ${DOCKER_NETWORK_NAME}
+
+  # Réseaux internes (DB isolées)
+  product_net:
+    internal: true
+  order_net:
+    internal: true
+  customer_net:
+    internal: true
+
+volumes:
+  product_postgres_data:
+  order_postgres_data:
+  customer_postgres_data:
+
+# -------------------- Services --------------------
+services:
+  # -------- Reverse proxy (Traefik) --------
+  traefik:
+    image: traefik:v2.11
+    container_name: traefik
+    command:
+      - --api.dashboard=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.endpoint=tcp://docker-socket-proxy:2375
+      - --providers.docker.network=${DOCKER_NETWORK_NAME}
+      - --entrypoints.web.address=:${TRAEFIK_HTTP_PORT:-80}
+      - --metrics.prometheus=true
+      - --metrics.prometheus.addEntryPointsLabels=true
+      - --metrics.prometheus.addRoutersLabels=true
+      - --accesslog=true
+      - --log.level=INFO
+    ports:
+      - "${TRAEFIK_HTTP_PORT:-80}:80"
+      - "8083:8080"   # Dashboard Traefik
+    networks: [mspr]
+    restart: unless-stopped
+    depends_on:
+      - docker-socket-proxy
+
+  # -------- Docker Socket Proxy (sécurise l’accès docker de Traefik) --------
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: docker-socket-proxy
+    environment:
+      CONTAINERS: 1
+      EVENTS: 1
+      INFO: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks: [mspr]
+    restart: unless-stopped
+
+  # -------- Auth Jwt(forwardAuth) --------
+  jwt-auth:
+    build: ./jwt-auth
+    container_name: jwt-auth
+    environment:
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER_URL}
+      KEYCLOAK_JWKS_URL: ${KEYCLOAK_JWKS_URL}
+      # OPTIONNEL: fixer une audience attendue côté edge
+      # EXPECTED_AUD: ${EXPECTED_AUD}
+    networks: [mspr]
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${DOCKER_NETWORK_NAME}
+      - traefik.http.services.jwt-auth.loadbalancer.server.port=8001
+      - traefik.http.middlewares.fa.forwardauth.address=http://jwt-auth:8001/auth
+      - traefik.http.middlewares.fa.forwardauth.trustForwardHeader=true
+      - traefik.http.middlewares.fa.forwardauth.authRequestHeaders=Authorization
+      - traefik.http.middlewares.fa.forwardauth.authResponseHeaders=X-Authenticated-User,X-Authenticated-Email
+
+  # -------- Identity Provider (Keycloak) --------
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: keycloak
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+
+      # Important : chemin relatif /auth -> l’issuer sera ...:8080/auth/realms/<realm>
+      KC_HTTP_RELATIVE_PATH: "/auth"
+      KC_PROXY: "edge"
+      KC_HOSTNAME: "localhost"
+      KC_HOSTNAME_STRICT: "false"
+    ports:
+      - "8081:8080"   # Accès admin local
+    volumes:
+      - ./keycloak/paye-ton-kawa.json:/opt/keycloak/data/import/paye-ton-kawa.json:ro
+    networks: [mspr]
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${DOCKER_NETWORK_NAME}
+      - traefik.http.routers.keycloak.rule=PathPrefix(`/auth`)
+      - traefik.http.routers.keycloak.entrypoints=web
+      - traefik.http.services.keycloak.loadbalancer.server.port=8080
+
+  # -------- Messaging (RabbitMQ) --------
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    command: >
+      bash -lc "rabbitmq-plugins enable --offline rabbitmq_prometheus &&
+                rabbitmq-server"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-app}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-app}
+      RABBITMQ_DEFAULT_VHOST: /
+    ports:
+      - "5672:5672"     # AMQP
+      - "15672:15672"   # UI
+      - "15692:15692"   # Prometheus metrics
+    networks: [mspr]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics check_port_connectivity"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # -------- Prometheus --------
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    networks: [mspr]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    restart: unless-stopped
+
+  # -------- Databases (isolées) --------
+  product-db:
+    image: postgres:17
+    container_name: product-db
+    environment:
+      POSTGRES_USER: ${PRODUCT_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${PRODUCT_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${PRODUCT_POSTGRES_DB}
+    volumes:
+      - product_postgres_data:/var/lib/postgresql/data
+    networks: [product_net]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PRODUCT_POSTGRES_USER} -d ${PRODUCT_POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  order-db:
+    image: postgres:17
+    container_name: order-db
+    environment:
+      POSTGRES_USER: ${ORDER_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${ORDER_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${ORDER_POSTGRES_DB}
+    volumes:
+      - order_postgres_data:/var/lib/postgresql/data
+    networks: [order_net]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ORDER_POSTGRES_USER} -d ${ORDER_POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  customer-db:
+    image: postgres:17
+    container_name: customer-db
+    environment:
+      POSTGRES_USER: ${CUSTOMER_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${CUSTOMER_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${CUSTOMER_POSTGRES_DB}
+    volumes:
+      - customer_postgres_data:/var/lib/postgresql/data
+    networks: [customer_net]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${CUSTOMER_POSTGRES_USER} -d ${CUSTOMER_POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # -------- APIs (split public/privé + forwardAuth) --------
+  product-api:
+    build: ./product-api
+    container_name: product-api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${PRODUCT_POSTGRES_USER}:${PRODUCT_POSTGRES_PASSWORD}@product-db:5432/${PRODUCT_POSTGRES_DB}
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER_URL}
+      KEYCLOAK_JWKS_URL: ${KEYCLOAK_JWKS_URL}
+      ROLE_READ: ${PRODUCT_ROLE_READ}
+      ROLE_WRITE: ${PRODUCT_ROLE_WRITE}
+      ROOT_PATH: /api/product
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://app:app@rabbitmq:5672/%2F}
+      RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE:-events}
+      RABBITMQ_EXCHANGE_TYPE: ${RABBITMQ_EXCHANGE_TYPE:-topic}
+    volumes:
+      - ./product-api:/app
+    networks: [mspr, product_net]
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${DOCKER_NETWORK_NAME}
+      - traefik.http.services.product-api.loadbalancer.server.port=8000
+
+      # Public (docs/openapi/health/metrics)
+      - traefik.http.routers.product-api-public.rule=Path(`/api/product/docs`) || Path(`/api/product/openapi.json`) || Path(`/api/product/health`) || Path(`/api/product/metrics`)
+      - traefik.http.routers.product-api-public.entrypoints=web
+      - traefik.http.routers.product-api-public.priority=1000
+      - traefik.http.routers.product-api-public.service=product-api
+
+      # Privé (tout le reste) + forwardAuth
+      - traefik.http.routers.product-api.rule=PathPrefix(`/api/product`)
+      - traefik.http.routers.product-api.entrypoints=web
+      - traefik.http.routers.product-api.middlewares=fa@docker
+      - traefik.http.routers.product-api.service=product-api
+    depends_on:
+      product-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  order-api:
+    build: ./order-api
+    container_name: order-api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${ORDER_POSTGRES_USER}:${ORDER_POSTGRES_PASSWORD}@order-db:5432/${ORDER_POSTGRES_DB}
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER_URL}
+      KEYCLOAK_JWKS_URL: ${KEYCLOAK_JWKS_URL}
+      ROLE_READ: ${ORDER_ROLE_READ}
+      ROLE_WRITE: ${ORDER_ROLE_WRITE}
+      ROOT_PATH: /api/order
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://app:app@rabbitmq:5672/%2F}
+      RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE:-events}
+      RABBITMQ_EXCHANGE_TYPE: ${RABBITMQ_EXCHANGE_TYPE:-topic}
+    volumes:
+      - ./order-api:/app
+    networks: [mspr, order_net]
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${DOCKER_NETWORK_NAME}
+      - traefik.http.services.order-api.loadbalancer.server.port=8000
+
+      # Public
+      - traefik.http.routers.order-api-public.rule=Path(`/api/order/docs`) || Path(`/api/order/openapi.json`) || Path(`/api/order/health`) || Path(`/api/order/metrics`)
+      - traefik.http.routers.order-api-public.entrypoints=web
+      - traefik.http.routers.order-api-public.priority=1000
+      - traefik.http.routers.order-api-public.service=order-api
+
+      # Privé
+      - traefik.http.routers.order-api.rule=PathPrefix(`/api/order`)
+      - traefik.http.routers.order-api.entrypoints=web
+      - traefik.http.routers.order-api.middlewares=fa@docker
+      - traefik.http.routers.order-api.service=order-api
+    depends_on:
+      order-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  customer-api:
+    build: ./customer-api
+    container_name: customer-api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${CUSTOMER_POSTGRES_USER}:${CUSTOMER_POSTGRES_PASSWORD}@customer-db:5432/${CUSTOMER_POSTGRES_DB}
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER_URL}
+      KEYCLOAK_JWKS_URL: ${KEYCLOAK_JWKS_URL}
+      ROLE_READ: ${CUSTOMER_ROLE_READ}
+      ROLE_WRITE: ${CUSTOMER_ROLE_WRITE}
+      ROOT_PATH: /api/customer
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://app:app@rabbitmq:5672/%2F}
+      RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE:-events}
+      RABBITMQ_EXCHANGE_TYPE: ${RABBITMQ_EXCHANGE_TYPE:-topic}
+    volumes:
+      - ./customer-api:/app
+    networks: [mspr, customer_net]
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${DOCKER_NETWORK_NAME}
+      - traefik.http.services.customer-api.loadbalancer.server.port=8000
+
+      # Public
+      - traefik.http.routers.customer-api-public.rule=Path(`/api/customer/docs`) || Path(`/api/customer/openapi.json`) || Path(`/api/customer/health`) || Path(`/api/customer/metrics`)
+      - traefik.http.routers.customer-api-public.entrypoints=web
+      - traefik.http.routers.customer-api-public.priority=1000
+      - traefik.http.routers.customer-api-public.service=customer-api
+
+      # Privé
+      - traefik.http.routers.customer-api.rule=PathPrefix(`/api/customer`)
+      - traefik.http.routers.customer-api.entrypoints=web
+      - traefik.http.routers.customer-api.middlewares=fa@docker
+      - traefik.http.routers.customer-api.service=customer-api
+    depends_on:
+      customer-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
