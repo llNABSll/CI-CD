@@ -17,6 +17,7 @@ volumes:
   product_postgres_data:
   order_postgres_data:
   customer_postgres_data:
+  grafana_data: {}
 
 # -------------------- Services --------------------
 services:
@@ -43,6 +44,19 @@ services:
     restart: unless-stopped
     depends_on:
       - docker-socket-proxy
+
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${DOCKER_NETWORK_NAME}
+
+      # Router pour le dashboard Traefik
+      - traefik.http.routers.traefik.rule=PathPrefix(`/dashboard`) || PathPrefix(`/api/rawdata`) || PathPrefix(`/api/overview`) || PathPrefix(`/api/version`) || PathPrefix(`/api/entrypoints`) || PathPrefix(`/api/routes`) || PathPrefix(`/api/services`) || PathPrefix(`/api/middlewares`) || PathPrefix(`/api/providers`)
+      - traefik.http.routers.traefik.entrypoints=web
+      - traefik.http.routers.traefik.service=api@internal
+
+      # --- Protection par BasicAuth ---
+      - traefik.http.routers.traefik.middlewares=traefik-auth@docker
+      - traefik.http.middlewares.traefik-auth.basicauth.users=admin:$2y$05$0KKZtbDdl.KntP4q67KR9O9FGwjVDynMZeXIXmKOGX0oD13.kl2LS
 
   # -------- Docker Socket Proxy (sécurise l’accès docker de Traefik) --------
   docker-socket-proxy:
@@ -135,11 +149,46 @@ services:
     image: prom/prometheus:latest
     container_name: prometheus
     networks: [mspr]
-    ports:
-      - "9090:9090"
     volumes:
       - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--web.external-url=/prometheus"
+      - "--web.route-prefix=/prometheus"
     restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${DOCKER_NETWORK_NAME}
+      - traefik.http.services.prometheus.loadbalancer.server.port=9090
+
+      # Router Prometheus
+      - traefik.http.routers.prometheus.rule=PathPrefix(`/prometheus`)
+      - traefik.http.routers.prometheus.entrypoints=web
+      - traefik.http.routers.prometheus.service=prometheus
+
+  # -------- Grafana --------
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: grafana
+    networks: [mspr]
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s/grafana
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+    volumes:
+      - grafana_data:/var/lib/grafana
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${DOCKER_NETWORK_NAME}
+      - traefik.http.services.grafana.loadbalancer.server.port=3000
+
+      # Router Grafana
+      - traefik.http.routers.grafana.rule=PathPrefix(`/grafana`)
+      - traefik.http.routers.grafana.entrypoints=web
+      - traefik.http.routers.grafana.service=grafana
+
 
   # -------- Databases (isolées) --------
   product-db:
@@ -199,6 +248,7 @@ services:
     container_name: product-api
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers
     environment:
+      ENV: dev
       DATABASE_URL: postgresql+psycopg2://${PRODUCT_POSTGRES_USER}:${PRODUCT_POSTGRES_PASSWORD}@product-db:5432/${PRODUCT_POSTGRES_DB}
       KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER_URL}
       KEYCLOAK_JWKS_URL: ${KEYCLOAK_JWKS_URL}
@@ -226,8 +276,15 @@ services:
       # Privé (tout le reste) + forwardAuth
       - traefik.http.routers.product-api.rule=PathPrefix(`/api/product`)
       - traefik.http.routers.product-api.entrypoints=web
-      - traefik.http.routers.product-api.middlewares=fa@docker
+      - traefik.http.routers.product-api.middlewares=fa@docker,ratelimit@docker
       - traefik.http.routers.product-api.service=product-api
+
+      # --- Middlewares ---
+      # Limite à 50 req/sec en moyenne avec burst de 100
+      - traefik.http.middlewares.ratelimit.ratelimit.average=50
+      - traefik.http.middlewares.ratelimit.ratelimit.burst=100
+
+
     depends_on:
       product-db:
         condition: service_healthy
@@ -239,6 +296,7 @@ services:
     container_name: order-api
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers
     environment:
+      ENV: dev
       DATABASE_URL: postgresql+psycopg2://${ORDER_POSTGRES_USER}:${ORDER_POSTGRES_PASSWORD}@order-db:5432/${ORDER_POSTGRES_DB}
       KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER_URL}
       KEYCLOAK_JWKS_URL: ${KEYCLOAK_JWKS_URL}
@@ -266,8 +324,15 @@ services:
       # Privé
       - traefik.http.routers.order-api.rule=PathPrefix(`/api/order`)
       - traefik.http.routers.order-api.entrypoints=web
-      - traefik.http.routers.order-api.middlewares=fa@docker
+      - traefik.http.routers.order-api.middlewares=fa@docker,ratelimit@docker
       - traefik.http.routers.order-api.service=order-api
+
+      # --- Middlewares ---
+      # Limite à 50 req/sec en moyenne avec burst de 100
+      - traefik.http.middlewares.ratelimit.ratelimit.average=50
+      - traefik.http.middlewares.ratelimit.ratelimit.burst=100
+
+
     depends_on:
       order-db:
         condition: service_healthy
@@ -279,6 +344,7 @@ services:
     container_name: customer-api
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers
     environment:
+      ENV: dev
       DATABASE_URL: postgresql+psycopg2://${CUSTOMER_POSTGRES_USER}:${CUSTOMER_POSTGRES_PASSWORD}@customer-db:5432/${CUSTOMER_POSTGRES_DB}
       KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER_URL}
       KEYCLOAK_JWKS_URL: ${KEYCLOAK_JWKS_URL}
@@ -306,8 +372,14 @@ services:
       # Privé
       - traefik.http.routers.customer-api.rule=PathPrefix(`/api/customer`)
       - traefik.http.routers.customer-api.entrypoints=web
-      - traefik.http.routers.customer-api.middlewares=fa@docker
+      - traefik.http.routers.customer-api.middlewares=fa@docker,ratelimit@docker
       - traefik.http.routers.customer-api.service=customer-api
+
+      # --- Middlewares ---
+      # Limite à 50 req/sec en moyenne avec burst de 100
+      - traefik.http.middlewares.ratelimit.ratelimit.average=50
+      - traefik.http.middlewares.ratelimit.ratelimit.burst=100
+
     depends_on:
       customer-db:
         condition: service_healthy

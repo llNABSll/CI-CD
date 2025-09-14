@@ -1,0 +1,68 @@
+global:
+  scrape_interval: 15s    # Intervalle de scraping
+  scrape_timeout: 5s      # Timeout max pour chaque scrape
+
+scrape_configs:
+  # --- Prometheus (self-monitoring) ---
+  - job_name: prometheus
+    static_configs:
+      - targets: ["prometheus:9090"]
+        labels:
+          service: prometheus
+          component: monitoring
+    metrics_path: /prometheus/metrics
+
+
+  # --- Traefik (reverse proxy) ---
+  - job_name: traefik
+    static_configs:
+      - targets: ["traefik:8080"]
+        labels:
+          service: traefik
+          component: proxy
+    metrics_path: /metrics
+
+  # --- Product API ---
+  - job_name: product-api
+    static_configs:
+      - targets: ["product-api:8000"]
+        labels:
+          service: product-api
+          component: api
+    metrics_path: /metrics
+
+  # --- Customer API ---
+  - job_name: customer-api
+    static_configs:
+      - targets: ["customer-api:8000"]
+        labels:
+          service: customer-api
+          component: api
+    metrics_path: /metrics
+
+  # --- Order API ---
+  - job_name: order-api
+    static_configs:
+      - targets: ["order-api:8000"]
+        labels:
+          service: order-api
+          component: api
+    metrics_path: /metrics
+
+  # --- Keycloak (Identity Provider) ---
+  - job_name: keycloak
+    static_configs:
+      - targets: ["keycloak:8080"]
+        labels:
+          service: keycloak
+          component: auth
+    metrics_path: /auth/metrics
+
+  # --- RabbitMQ (broker AMQP) ---
+  - job_name: rabbitmq
+    static_configs:
+      - targets: ["rabbitmq:15692"]
+        labels:
+          service: rabbitmq
+          component: messaging
+    metrics_path: /metrics
