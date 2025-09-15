@@ -189,13 +189,13 @@ Pour tester et documenter les APIs, notre groupe utilise **Postman**.
 
 Un workspace nommé *PayeTonKawa* contient déjà toutes les requêtes (JWT, Produits, Commandes).
 
-### Partager la collection
+### Fichier de collection fourni
 
-1. **Exporter en JSON** (clic droit → Export → format v2.1 → fichier `.json`).
-   → Les testeurs importent ce fichier dans Postman.
+Une collection Postman prête à l’emploi est fournie dans le dépôt :
 
-2. **Partager un lien Postman Cloud** (clic droit → Share collection → Get public link ou Invite to workspace).
-   → Les membres rejoignent le workspace et accèdent aux requêtes en temps réel.
+[CI-CD/postman/PayeTonKawa.postman_collection.json](postman/PayeTonKawa.postman_collection.json)
+
+Importez-la directement dans Postman (**File → Import → Upload Files**) pour retrouver toutes les requêtes prêtes à l’emploi (authentification JWT, APIs Produits/Clients/Commandes…).
 
 ---
 
@@ -243,8 +243,6 @@ docker compose down -v
 
 ## ✅ Points à ajouter pour une documentation optimale
 
-* **Schémas d’architecture** : réseaux, pipeline CI/CD.
-* **Collection Postman exportée** en `.json` jointe au dépôt.
 * **Description des pipelines CI/CD** (GitHub Actions ou autre).
 
 ---
