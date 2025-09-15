@@ -1,0 +1,51 @@
+name: Manual CI - Test & Build
+
+inputs:
+  GITHUB_TOKEN:
+    description: "GitHub token for authentication"
+    required: true
+  REPOSITORY_OWNER:
+    description: "Owner of the repository"
+    required: true
+  UNIT_TEST_COMMAND:
+    description: "Command to run unit tests"
+    required: true
+  API_NAME:
+    description: "Name of the API"
+    required: true
+
+runs: 
+
+  using: "composite"
+
+  steps:
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        pip install -r requirements.txt
+
+    - name: Run unit tests
+      shell: bash
+      run: |
+
+        ${{ inputs.UNIT_TEST_COMMAND }}
+
+    - name: Log in to GHCR
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ inputs.REPOSITORY_OWNER }}
+        password: ${{ inputs.GITHUB_TOKEN }}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ghcr.io/llnabsll/${{ inputs.API_NAME }}/${{ inputs.API_NAME }}:1.0
