@@ -73,7 +73,7 @@ services:
 
   # -------- Auth Jwt(forwardAuth) --------
   jwt-auth:
-    build: ./jwt-auth
+    build: ../jwt-auth
     container_name: jwt-auth
     command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload --log-level debug
     environment:
@@ -111,7 +111,7 @@ services:
     ports:
       - "8081:8080"   # Accès admin local
     volumes:
-      - ./keycloak/paye-ton-kawa.json:/opt/keycloak/data/import/paye-ton-kawa.json:ro
+      - ../keycloak/paye-ton-kawa.json:/opt/keycloak/data/import/paye-ton-kawa.json:ro
     networks: [mspr]
     restart: unless-stopped
     labels:
@@ -244,7 +244,7 @@ services:
 
   # -------- APIs (split public/privé + forwardAuth) --------
   product-api:
-    build: ./product-api
+    build: ../product-api
     container_name: product-api
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers
     environment:
@@ -259,7 +259,7 @@ services:
       RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE:-events}
       RABBITMQ_EXCHANGE_TYPE: ${RABBITMQ_EXCHANGE_TYPE:-topic}
     volumes:
-      - ./product-api:/app
+      - ../product-api:/app
     networks: [mspr, product_net]
     restart: unless-stopped
     labels:
@@ -292,7 +292,7 @@ services:
         condition: service_healthy
 
   order-api:
-    build: ./order-api
+    build: ../order-api
     container_name: order-api
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers
     environment:
@@ -307,7 +307,7 @@ services:
       RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE:-events}
       RABBITMQ_EXCHANGE_TYPE: ${RABBITMQ_EXCHANGE_TYPE:-topic}
     volumes:
-      - ./order-api:/app
+      - ../order-api:/app
     networks: [mspr, order_net]
     restart: unless-stopped
     labels:
@@ -340,7 +340,7 @@ services:
         condition: service_healthy
 
   customer-api:
-    build: ./customer-api
+    build: ../customer-api
     container_name: customer-api
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers
     environment:
@@ -355,7 +355,7 @@ services:
       RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE:-events}
       RABBITMQ_EXCHANGE_TYPE: ${RABBITMQ_EXCHANGE_TYPE:-topic}
     volumes:
-      - ./customer-api:/app
+      - ../customer-api:/app
     networks: [mspr, customer_net]
     restart: unless-stopped
     labels:
