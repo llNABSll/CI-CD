@@ -21,6 +21,9 @@ Le projet est composé des services suivants :
   * `order-api` : Gère les commandes.
 * **Bases de données** : Chaque API possède sa propre base de données PostgreSQL isolée.
 
+## Schéma d'architecture
+![Schéma d’architecture PayeTonKawa](assets/images/architecture.png)
+
 ---
 
 ## 2️⃣ Prérequis
@@ -38,7 +41,7 @@ L’ensemble de l’écosystème est orchestré via un unique fichier `docker-co
 
 **Important** : Les autres fichiers `docker-compose.yml` présents dans les répertoires de chaque service sont uniquement destinés aux tests unitaires et **ne doivent pas être utilisés pour le déploiement global**.
 
-### ⚠️ Étape 1 – Créer le réseau externe sur chaque machine
+### Étape 1 – Créer le réseau externe sur chaque machine
 
 Sur chaque machine hôte (Linux, macOS ou Windows), **un réseau externe doit être créé localement** avant la première exécution de `docker compose up`.
 Le fichier `.env` définit bien `DOCKER_NETWORK_NAME=mspr`, mais si le réseau n’existe pas, Compose s’arrête avec l’erreur :
@@ -61,11 +64,9 @@ docker network create --driver bridge --attachable mspr
 docker network inspect mspr | grep Name   # ou Select-String Name sous Windows
 ```
 
-💡 **Astuce** : si vous clonez ou déplacez ce projet sur plusieurs machines, **répétez cette étape sur chacune** avant le premier démarrage.
-
 ---
 
-### ⚠️ Étape 2 – Créer le fichier `.env` à partir de `env.example`
+### Étape 2 – Créer le fichier `.env` à partir de `env.example`
 
 Dans le dossier `CI-CD/`, copiez le fichier d’exemple et renommez-le :
 
@@ -87,7 +88,7 @@ PRODUCT_POSTGRES_USER=product
 PRODUCT_POSTGRES_PASSWORD=product
 ```
 
-> ⚠️ Ne modifiez pas `env.example` directement : seul le fichier `.env` est lu par `docker compose`.
+> Ne modifiez pas `env.example` directement : seul le fichier `.env` est lu par `docker compose`.
 
 ---
 
@@ -110,9 +111,9 @@ Une fois les conteneurs démarrés, les services sont accessibles via le reverse
 | Service                               | URL via Traefik               |
 | ------------------------------------- | ----------------------------- |
 | **Dashboard Traefik**                 | `http://localhost:8083`       |
-| **Console d’administration Keycloak** | `http://localhost/auth`       |
+| **Console d’administration Keycloak** | `hhttp://localhost:8081`       |
 | **Interface de gestion RabbitMQ**     | `http://localhost:15672`      |
-| **Interface Prometheus**              | `http://localhost/prometheus` |
+| **Interface Prometheus**              | `http://localhost:9090` |
 
 ### APIs exposées
 
@@ -121,9 +122,6 @@ Une fois les conteneurs démarrés, les services sont accessibles via le reverse
 | **Customer API** | `http://localhost/api/customer` |
 | **Product API**  | `http://localhost/api/product`  |
 | **Order API**    | `http://localhost/api/order`    |
-
-> Les routes de documentation (ex: `/api/customer/docs`) sont publiques.
-> Toutes les autres routes sont sécurisées et nécessitent un **token JWT**.
 
 ---
 
@@ -183,7 +181,7 @@ curl -H "Authorization: Bearer <token>" http://localhost/api/product/products
 
 ## 7️⃣ Tests et Postman
 
-Pour tester et documenter les APIs, l’équipe utilise **Postman**.
+Pour tester et documenter les APIs, notre groupe utilise **Postman**.
 
 * **Collections** : regroupent toutes les requêtes (URL, headers, body).
 * **Workspaces** : espaces collaboratifs partagés.
@@ -199,8 +197,6 @@ Un workspace nommé *PayeTonKawa* contient déjà toutes les requêtes (JWT, Pro
 2. **Partager un lien Postman Cloud** (clic droit → Share collection → Get public link ou Invite to workspace).
    → Les membres rejoignent le workspace et accèdent aux requêtes en temps réel.
 
-💡 Astuce : chaque requête peut aussi être convertie en **cURL, Python, JS** via le menu **Code**.
-
 ---
 
 ## 8️⃣ Monitoring & Maintenance
@@ -208,13 +204,6 @@ Un workspace nommé *PayeTonKawa* contient déjà toutes les requêtes (JWT, Pro
 * **Prometheus** : métriques disponibles sur `http://localhost/prometheus`.
 * **Traefik logs** et `docker logs` : diagnostic des services.
 * **RabbitMQ UI** : gestion des files d’attente sur `http://localhost:15672`.
-
-### Sauvegarde et restauration des bases
-
-```bash
-docker exec product-db pg_dump -U product productdb > backup.sql
-docker exec -i product-db psql -U product productdb < backup.sql
-```
 
 ### Mise à jour
 
@@ -254,12 +243,9 @@ docker compose down -v
 
 ## ✅ Points à ajouter pour une documentation optimale
 
-* **Captures d’écran** : Traefik, Keycloak, Prometheus, RabbitMQ.
 * **Schémas d’architecture** : réseaux, pipeline CI/CD.
 * **Collection Postman exportée** en `.json` jointe au dépôt.
 * **Description des pipelines CI/CD** (GitHub Actions ou autre).
-* **Plan de sauvegarde automatisée** et stratégie de restauration.
-* **Note sur la mise en production sécurisée (HTTPS avec Traefik)**.
 
 ---
 
