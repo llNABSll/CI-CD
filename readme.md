@@ -110,10 +110,10 @@ Une fois les conteneurs démarrés, les services sont accessibles via le reverse
 
 | Service                               | URL via Traefik               |
 | ------------------------------------- | ----------------------------- |
-| **Dashboard Traefik**                 | `http://localhost:8083`       |
-| **Console d’administration Keycloak** | `hhttp://localhost:8081`       |
+| **Dashboard Traefik**                 | `http://localhost/dashboard/#`|
+| **Console d’administration Keycloak** | `hhttp://localhost/auth`      |
 | **Interface de gestion RabbitMQ**     | `http://localhost:15672`      |
-| **Interface Prometheus**              | `http://localhost:9090` |
+| **Interface Prometheus**              | `http://localhost/prometheus` |
 
 ### APIs exposées
 
@@ -201,7 +201,7 @@ Importez-la directement dans Postman (**File → Import → Upload Files**) pour
 
 ## 8️⃣ Monitoring & Maintenance
 
-* **Prometheus** : métriques disponibles sur `http://localhost/prometheus`.
+* **Prometheus** : métriques disponibles sur `http://localhost/prometheus` (chaque API expose /health et /metrics pour la surveillance).
 * **Traefik logs** et `docker logs` : diagnostic des services.
 * **RabbitMQ UI** : gestion des files d’attente sur `http://localhost:15672`.
 
