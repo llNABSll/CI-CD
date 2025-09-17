@@ -111,7 +111,7 @@ Une fois les conteneurs démarrés, les services sont accessibles via le reverse
 | Service                               | URL via Traefik               |
 | ------------------------------------- | ----------------------------- |
 | **Dashboard Traefik**                 | `http://localhost/dashboard/#`|
-| **Console d’administration Keycloak** | `hhttp://localhost/auth`      |
+| **Console d’administration Keycloak** | `http://localhost/auth`      |
 | **Interface de gestion RabbitMQ**     | `http://localhost:15672`      |
 | **Interface Prometheus**              | `http://localhost/prometheus` |
 
@@ -237,13 +237,6 @@ docker compose down -v
 * `/{customer-api, product-api, order-api}` : code source des microservices.
 * `/jwt-auth` : service d’authentification Forward Auth.
 * `/keycloak` : configuration du realm Keycloak.
-* `/*-action` : actions GitHub pour l’intégration et le déploiement continus (CI/CD).
-
----
-
-## ✅ Points à ajouter pour une documentation optimale
-
-* **Description des pipelines CI/CD** (GitHub Actions ou autre).
 
 ---
 
