@@ -1,0 +1,269 @@
+{
+    "realm": "paye-ton-kawa",
+    "enabled": true,
+    "accessTokenLifespan": 1800,
+    "roles": {
+        "realm": [
+            {
+                "name": "admin"
+            },
+            {
+                "name": "developer"
+            },
+            {
+                "name": "user"
+            },
+            {
+                "name": "product:read"
+            },
+            {
+                "name": "product:write"
+            },
+            {
+                "name": "order:read"
+            },
+            {
+                "name": "order:write"
+            },
+            {
+                "name": "customer:read"
+            },
+            {
+                "name": "customer:write"
+            }
+        ]
+    },
+    "groups": [
+        {
+            "name": "management",
+            "path": "/management"
+        },
+        {
+            "name": "dev-team",
+            "path": "/dev-team"
+        },
+        {
+            "name": "customers",
+            "path": "/customers"
+        }
+    ],
+    "clients": [
+        {
+            "clientId": "gateway",
+            "publicClient": true,
+            "directAccessGrantsEnabled": true,
+            "standardFlowEnabled": true,
+            "redirectUris": [
+                "*"
+            ],
+            "webOrigins": [
+                "*"
+            ],
+            "protocolMappers": [
+                {
+                    "name": "audience-gateway",
+                    "protocol": "openid-connect",
+                    "protocolMapper": "oidc-audience-mapper",
+                    "config": {
+                        "id.token.claim": "true",
+                        "access.token.claim": "true",
+                        "included.client.audience": "gateway"
+                    }
+                },
+                {
+                    "name": "realm-roles",
+                    "protocol": "openid-connect",
+                    "protocolMapper": "oidc-usermodel-realm-role-mapper",
+                    "config": {
+                        "claim.name": "roles",
+                        "jsonType.label": "String",
+                        "multivalued": "true",
+                        "id.token.claim": "true",
+                        "access.token.claim": "true"
+                    }
+                },
+                {
+                    "name": "username",
+                    "protocol": "openid-connect",
+                    "protocolMapper": "oidc-usermodel-property-mapper",
+                    "config": {
+                        "user.attribute": "username",
+                        "claim.name": "preferred_username",
+                        "jsonType.label": "String",
+                        "id.token.claim": "true",
+                        "access.token.claim": "true"
+                    }
+                },
+                {
+                    "name": "email",
+                    "protocol": "openid-connect",
+                    "protocolMapper": "oidc-usermodel-property-mapper",
+                    "config": {
+                        "user.attribute": "email",
+                        "claim.name": "email",
+                        "jsonType.label": "String",
+                        "id.token.claim": "true",
+                        "access.token.claim": "true"
+                    }
+                },
+                {
+                    "name": "audience-product",
+                    "protocol": "openid-connect",
+                    "protocolMapper": "oidc-audience-mapper",
+                    "config": {
+                        "included.client.audience": "product-api",
+                        "access.token.claim": "true"
+                    }
+                },
+                {
+                    "name": "audience-order",
+                    "protocol": "openid-connect",
+                    "protocolMapper": "oidc-audience-mapper",
+                    "config": {
+                        "included.client.audience": "order-api",
+                        "access.token.claim": "true"
+                    }
+                },
+                {
+                    "name": "audience-customer",
+                    "protocol": "openid-connect",
+                    "protocolMapper": "oidc-audience-mapper",
+                    "config": {
+                        "included.client.audience": "customer-api",
+                        "access.token.claim": "true"
+                    }
+                }
+            ]
+        },
+        {
+            "clientId": "product-api",
+            "publicClient": true,
+            "protocolMappers": [
+                {
+                    "name": "audience-product",
+                    "protocol": "openid-connect",
+                    "protocolMapper": "oidc-audience-mapper",
+                    "config": {
+                        "included.client.audience": "product-api",
+                        "access.token.claim": "true"
+                    }
+                }
+            ]
+        },
+        {
+            "clientId": "order-api",
+            "publicClient": true,
+            "protocolMappers": [
+                {
+                    "name": "audience-order",
+                    "protocol": "openid-connect",
+                    "protocolMapper": "oidc-audience-mapper",
+                    "config": {
+                        "included.client.audience": "order-api",
+                        "access.token.claim": "true"
+                    }
+                }
+            ]
+        },
+        {
+            "clientId": "customer-api",
+            "publicClient": true,
+            "protocolMappers": [
+                {
+                    "name": "audience-customer",
+                    "protocol": "openid-connect",
+                    "protocolMapper": "oidc-audience-mapper",
+                    "config": {
+                        "included.client.audience": "customer-api",
+                        "access.token.claim": "true"
+                    }
+                }
+            ]
+        },
+        {
+            "clientId": "frontend",
+            "publicClient": true,
+            "directAccessGrantsEnabled": true,
+            "standardFlowEnabled": true,
+            "redirectUris": [
+                "*"
+            ],
+            "webOrigins": [
+                "*"
+            ]
+        }
+    ],
+    "users": [
+        {
+            "username": "admin",
+            "email": "admin@local",
+            "firstName": "Alice",
+            "lastName": "Admin",
+            "enabled": true,
+            "credentials": [
+                {
+                    "type": "password",
+                    "value": "admin"
+                }
+            ],
+            "realmRoles": [
+                "admin",
+                "product:read",
+                "product:write",
+                "order:read",
+                "order:write",
+                "customer:read",
+                "customer:write"
+            ],
+            "groups": [
+                "/management"
+            ]
+        },
+        {
+            "username": "dev",
+            "email": "dev@local",
+            "firstName": "David",
+            "lastName": "Dev",
+            "enabled": true,
+            "credentials": [
+                {
+                    "type": "password",
+                    "value": "dev"
+                }
+            ],
+            "realmRoles": [
+                "developer",
+                "product:read",
+                "order:read",
+                "customer:read"
+            ],
+            "groups": [
+                "/dev-team"
+            ]
+        },
+        {
+            "username": "demo",
+            "email": "demo@local",
+            "firstName": "Demo",
+            "lastName": "User",
+            "enabled": true,
+            "credentials": [
+                {
+                    "type": "password",
+                    "value": "demo"
+                }
+            ],
+            "realmRoles": [
+                "user",
+                "product:read",
+                "order:read",
+                "order:write",
+                "customer:read",
+                "customer:write"
+            ],
+            "groups": [
+                "/customers"
+            ]
+        }
+    ]
+}
