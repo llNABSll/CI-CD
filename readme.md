@@ -41,32 +41,7 @@ L’ensemble de l’écosystème est orchestré via un unique fichier `docker-co
 
 **Important** : Les autres fichiers `docker-compose.yml` présents dans les répertoires de chaque service sont uniquement destinés aux tests unitaires et **ne doivent pas être utilisés pour le déploiement global**.
 
-### Étape 1 – Créer le réseau externe sur chaque machine
-
-Sur chaque machine hôte (Linux, macOS ou Windows), **un réseau externe doit être créé localement** avant la première exécution de `docker compose up`.
-Le fichier `.env` définit bien `DOCKER_NETWORK_NAME=mspr`, mais si le réseau n’existe pas, Compose s’arrête avec l’erreur :
-
-```
-network mspr declared as external, but could not be found
-```
-
-Dans le dossier `CI-CD` (là où se trouve `docker-compose.yml`), exécutez :
-
-```bash
-# 1) Vérifier si le réseau existe
-docker network ls | grep mspr        # Linux / macOS
-docker network ls | findstr mspr     # Windows PowerShell ou CMD
-
-# 2) Le créer s’il n’existe pas
-docker network create --driver bridge --attachable mspr
-
-# 3) Vérifier
-docker network inspect mspr | grep Name   # ou Select-String Name sous Windows
-```
-
----
-
-### Étape 2 – Créer le fichier `.env` à partir de `env.example`
+### Étape 1 – Créer le fichier `.env` à partir de `env.example`
 
 Dans le dossier `CI-CD/`, copiez le fichier d’exemple et renommez-le :
 
@@ -92,12 +67,12 @@ PRODUCT_POSTGRES_PASSWORD=product
 
 ---
 
-### Étape 3 – Lancer l’écosystème
+### Étape 2 – Lancer l’écosystème
 
 Depuis le dossier `CI-CD` :
 
 ```bash
-docker compose up -d --build
+docker compose up -d 
 ```
 
 ---
@@ -111,9 +86,10 @@ Une fois les conteneurs démarrés, les services sont accessibles via le reverse
 | Service                               | URL via Traefik               |
 | ------------------------------------- | ----------------------------- |
 | **Dashboard Traefik**                 | `http://localhost/dashboard/#`|
-| **Console d’administration Keycloak** | `http://localhost/auth`      |
-| **Interface de gestion RabbitMQ**     | `http://localhost:15672`      |
+| **Console d’administration Keycloak** | `http://localhost/auth`       |
+| **Interface de gestion RabbitMQ**     | `http://localhost/rabbitmq`   |
 | **Interface Prometheus**              | `http://localhost/prometheus` |
+| **Interface Grafana**                 | `http://localhost/grafana`    |
 
 ### APIs exposées
 
@@ -181,15 +157,24 @@ curl -H "Authorization: Bearer <token>" http://localhost/api/product/products
 
 ## 7️⃣ Tests et Postman
 
-Pour tester et documenter les APIs, notre groupe utilise **Postman**.
+Pour effectuer des test automatisés, notamment nos tests unitaires, recettes et intégration,
+nous avons utilisés pytest ainsi que behave (plus orienté recette pour ce dernier)
 
-* **Collections** : regroupent toutes les requêtes (URL, headers, body).
+Exemple de commande à lancer dans un terminal:
+
+```bash
+pytest --cov=app --cov-report=term-missing
+```
+
+Pour vérifier manuellement le bon fonctionnement des APIs, nous utilisons Postman :
+
+* **Collections** : regroupent les requêtes HTTP (URL, en-têtes, corps).
 * **Workspaces** : espaces collaboratifs partagés.
-* **Desktop Agent** : permet d’envoyer les requêtes vers `localhost` et Docker.
+* **Desktop Agent** : permet d’exécuter les requêtes locales vers localhost ou les conteneurs.
 
-Un workspace nommé *PayeTonKawa* contient déjà toutes les requêtes (JWT, Produits, Commandes).
+Un workspace nommé *PayeTonKawa* contient déjà toutes les requêtes utiles (authentification JWT, Produits, Clients, Commandes).
 
-### Fichier de collection fourni
+Fichier de collection fourni
 
 Une collection Postman prête à l’emploi est fournie dans le dépôt :
 
@@ -202,17 +187,23 @@ Importez-la directement dans Postman (**File → Import → Upload Files**) pour
 ## 8️⃣ Monitoring & Maintenance
 
 * **Prometheus** : métriques disponibles sur `http://localhost/prometheus` (chaque API expose /health et /metrics pour la surveillance).
+* **Grafana** : accessible sur `http://localhost/grafana` (login admin/admin par défaut).
+  → Importer le dashboard Prometheus fourni (`grafana/dashboard.json`).
 * **Traefik logs** et `docker logs` : diagnostic des services.
-* **RabbitMQ UI** : gestion des files d’attente sur `http://localhost:15672`.
+* **RabbitMQ UI** : gestion des files d’attente sur `http://localhost/rabbitmq`.
+
+Si vous utilisez RabbitMQ derrière Traefik avec un sous-chemin (`/rabbitmq`), ajoutez dans `docker-compose.yml` :
+RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbitmq_management path_prefix \"/rabbitmq\""
+Sinon, accédez directement à l’UI via [http://localhost:15672](http://localhost:15672).
+
 
 ### Mise à jour
 
 ```bash
 docker compose pull
-docker compose build
-docker compose up -d
+docker compose up -d 
 ```
-
+Utilisez `docker compose build` seulement si vous modifiez le code ou les Dockerfile locaux.
 ---
 
 ## 9️⃣ Arrêt de l’Application
@@ -237,6 +228,13 @@ docker compose down -v
 * `/{customer-api, product-api, order-api}` : code source des microservices.
 * `/jwt-auth` : service d’authentification Forward Auth.
 * `/keycloak` : configuration du realm Keycloak.
+* `/*-action` : actions GitHub pour l’intégration et le déploiement continus (CI/CD).
+
+---
+
+## ✅ Points à ajouter pour une documentation optimale
+
+* **Pipelines CI/CD** : exécuter les tests (`pytest`), calculer la couverture, builder et pousser les images Docker sur GHCR, puis déployer automatiquement (optionnel).
 
 ---
 
