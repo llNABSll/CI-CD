@@ -1,0 +1,33 @@
+groups:
+  - name: api-alerts
+    rules:
+      - alert: APIHighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) 
+              / rate(http_requests_total[5m]) > 0.2
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Trop d'erreurs 5xx sur les APIs"
+          description: "Plus de 20% des requêtes ont échoué dans les 5 dernières minutes."
+
+      - alert: APILatencyHigh
+        expr: (
+                rate(http_request_duration_seconds_sum[5m]) 
+                / rate(http_request_duration_seconds_count[5m])
+              ) * 1000 > 500
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Latence élevée sur une API"
+          description: "La latence moyenne dépasse 500ms."
+
+      - alert: RabbitMQDown
+        expr: up{job="rabbitmq"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "RabbitMQ est indisponible"
+          description: "Le service RabbitMQ ne répond plus."
