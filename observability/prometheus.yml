@@ -2,6 +2,14 @@ global:
   scrape_interval: 15s    # Intervalle de scraping
   scrape_timeout: 5s      # Timeout max pour chaque scrape
 
+rule_files:
+  - /etc/prometheus/alert.rules.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
 scrape_configs:
   # --- Prometheus (self-monitoring) ---
   - job_name: prometheus

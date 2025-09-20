@@ -3,8 +3,8 @@
 		"_postman_id": "2852b6c0-f8a9-4353-ae1e-aa8316e90fcf",
 		"name": "payetonkawa",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-		"_exporter_id": "43645581",
-		"_collection_link": "https://nabs11.postman.co/workspace/NABS-Workspace~49f35a6d-66bb-4249-828d-dec8098b23c4/collection/38737262-2852b6c0-f8a9-4353-ae1e-aa8316e90fcf?action=share&source=collection_link&creator=43645581"
+		"_exporter_id": "38737262",
+		"_collection_link": "https://nabs11.postman.co/workspace/NABS-Workspace~49f35a6d-66bb-4249-828d-dec8098b23c4/collection/38737262-2852b6c0-f8a9-4353-ae1e-aa8316e90fcf?action=share&source=collection_link&creator=38737262"
 	},
 	"item": [
 		{
@@ -81,12 +81,11 @@
 							]
 						},
 						"url": {
-							"raw": "http://localhost:8081/auth/realms/paye-ton-kawa/protocol/openid-connect/token",
+							"raw": "http://localhost/auth/realms/paye-ton-kawa/protocol/openid-connect/token",
 							"protocol": "http",
 							"host": [
 								"localhost"
 							],
-							"port": "8081",
 							"path": [
 								"auth",
 								"realms",
@@ -112,7 +111,7 @@
 							"bearer": [
 								{
 									"key": "token",
-									"value": "{{PRODUCT_TOKEN}}",
+									"value": "{{ACCESS_TOKEN}}",
 									"type": "string"
 								}
 							]
@@ -273,7 +272,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost/api/product/products/{{product_id}}",
+							"raw": "http://localhost/api/product/products/1",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -282,7 +281,7 @@
 								"api",
 								"product",
 								"products",
-								"{{product_id}}"
+								"1"
 							]
 						}
 					},
@@ -493,7 +492,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n  \"customer_id\": 1,\r\n  \"items\": [\r\n    { \"product_id\": 3, \"quantity\": 10 },\r\n    { \"product_id\": 4, \"quantity\": 10 }\r\n  ]\r\n}\r\n",
+							"raw": "{\r\n  \"customer_id\": 3,\r\n  \"items\": [\r\n    { \"product_id\": 1, \"quantity\": 10 }\r\n  ]\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -624,7 +623,7 @@
 					"response": []
 				},
 				{
-					"name": "New Request",
+					"name": "Order status",
 					"request": {
 						"auth": {
 							"type": "bearer",
@@ -720,7 +719,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n  \"name\": \"Karine Luttin\",\r\n  \"email\": \"karine.luttin@example.com\",\r\n  \"company\": \"Cofee Addicts\",\r\n  \"phone\": \"0667795623\"\r\n}\r\n",
+							"raw": "{\r\n  \"first_name\": \"Karine\",\r\n  \"last_name\": \"Luttin\",\r\n  \"email\": \"karine.luttin@example.com\",\r\n  \"company\": \"Cofee Addicts\",\r\n  \"phone\": \"0667795623\"\r\n}\r\n",
 							"options": {
 								"raw": {
 									"language": "json"

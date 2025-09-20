@@ -1,0 +1,27 @@
+global:
+  resolve_timeout: 1m
+
+  # Configuration SMTP pour envoyer des mails
+  smtp_smarthost: "smtp.gmail.com:587"
+  smtp_from: "anthonesh.lopimh@gmail.com"
+  smtp_auth_username: "anthonesh.lopimh@gmail.com"
+  smtp_auth_password: "judieialvqijcvdk"
+  smtp_require_tls: true
+
+route:
+  receiver: "mail-and-ui"
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 3h
+
+receivers:
+  - name: "mail-and-ui"
+    email_configs:
+      - to: "anthony.girard4@ecoles-epsi.net"
+        send_resolved: true
+      - to: "simon.quach@ecoles-epsi.net"
+        send_resolved: true
+      - to: "nicolas.fiacsan@ecoles-epsi.net"
+        send_resolved: true
+      - to: "benjamin.pruja@ecoles-epsi.net"
+        send_resolved: true

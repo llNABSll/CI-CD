@@ -153,6 +153,7 @@ services:
     networks: [mspr]
     volumes:
       - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro 
     restart: unless-stopped
     labels:
       - traefik.enable=true
@@ -182,6 +183,37 @@ services:
       - traefik.http.routers.grafana.rule=PathPrefix(`/grafana`)
       - traefik.http.routers.grafana.entrypoints=web
       - traefik.http.routers.grafana.service=grafana
+
+  # -------- Alertmanager --------
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: alertmanager
+    volumes:
+      - ./observability/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    networks: [mspr]
+    ports:
+      - "9093:9093"
+    restart: unless-stopped
+
+  # -------- Locust (Load Testing) --------
+  locust:
+    image: locustio/locust
+    volumes:
+      - ./tests/load:/mnt/locust
+    ports:
+      - "8089:8089"   # UI web Locust
+    command: -f /mnt/locust/load_test.py --host=http://traefik
+    networks:
+      - mspr
+    depends_on:
+      - order-api
+      - product-api
+      - customer-api
+    extra_hosts:
+      - "localhost:host-gateway"
+
+
+
 
   # -------- Databases --------
   product-db:

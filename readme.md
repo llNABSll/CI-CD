@@ -32,6 +32,7 @@ Avant de commencer, assurez-vous d’avoir installé :
 
 * [Docker](https://docs.docker.com/get-docker/)
 * [Docker Compose](https://docs.docker.com/compose/install/)
+* [Postman](https://www.postman.com/downloads/)
 
 ---
 
@@ -136,11 +137,25 @@ Une fois les conteneurs démarrés, les services sont accessibles via le reverse
 ## 6️⃣ Authentification et Sécurité
 
 * **Keycloak** gère les utilisateurs, les rôles et l’émission des tokens JWT.
+
+* Contenu global du json d'import:
+
+Realm: paye-ton-kawa (token 30 min) • Clients (public): gateway, product-api, order-api, customer-api
+
+Import: Keycloak → Add Realm → Import → keycloak/realm-paye-ton-kawa.json
+
+Users (démo) : admin/admin (tous droits), dev/dev (read-only), demo/demo (read + write commandes/clients)
+
+Démo locale uniquement (changer/désactiver hors démo).
+
+Note : admin/admin, dev/dev, demo/demo sont des utilisateurs du realm (démo locale), pas le compte admin serveur Keycloak.
+
+
 * Exemple pour obtenir un token :
 
 ```bash
 curl -X POST \
-     -d "client_id=<client_id>" \
+     -d "client_id=gateway" \
      -d "username=<user>" \
      -d "password=<password>" \
      -d "grant_type=password" \
@@ -155,7 +170,7 @@ curl -H "Authorization: Bearer <token>" http://localhost/api/product/products
 
 ---
 
-## 7️⃣ Tests et Postman
+## 7️⃣ Tests
 
 Pour effectuer des test automatisés, notamment nos tests unitaires, recettes et intégration,
 nous avons utilisés pytest ainsi que behave (plus orienté recette pour ce dernier)
@@ -172,19 +187,25 @@ Pour vérifier manuellement le bon fonctionnement des APIs, nous utilisons Postm
 * **Workspaces** : espaces collaboratifs partagés.
 * **Desktop Agent** : permet d’exécuter les requêtes locales vers localhost ou les conteneurs.
 
+## 8️⃣ Postman
+
 Un workspace nommé *PayeTonKawa* contient déjà toutes les requêtes utiles (authentification JWT, Produits, Clients, Commandes).
 
 Fichier de collection fourni
 
 Une collection Postman prête à l’emploi est fournie dans le dépôt :
 
-[CI-CD/postman/PayeTonKawa.postman_collection.json](postman/PayeTonKawa.postman_collection.json)
+* [CI-CD/postman/PayeTonKawa.postman_collection.json](CI-CD/postman/PayeTonKawa.postman_collection.json)
 
 Importez-la directement dans Postman (**File → Import → Upload Files**) pour retrouver toutes les requêtes prêtes à l’emploi (authentification JWT, APIs Produits/Clients/Commandes…).
 
+Commencer par récupérer le JWT en renseignant correctement le body (pour tester tous les endpoints sans restriction préférez username: admin & password: admin)
+
+Une fois le JWT obtenu il est stocké dans une variable {{ACCESS_TOKEN}} qui est réutilisé par les autres requêtes (afin de ne pas saisir le token à chaque appel)
+
 ---
 
-## 8️⃣ Monitoring & Maintenance
+## 9️⃣ Monitoring & Maintenance
 
 * **Prometheus** : métriques disponibles sur `http://localhost/prometheus` (chaque API expose /health et /metrics pour la surveillance).
 * **Grafana** : accessible sur `http://localhost/grafana` (login admin/admin par défaut).
@@ -196,6 +217,24 @@ Si vous utilisez RabbitMQ derrière Traefik avec un sous-chemin (`/rabbitmq`), a
 RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbitmq_management path_prefix \"/rabbitmq\""
 Sinon, accédez directement à l’UI via [http://localhost:15672](http://localhost:15672).
 
+* **(Optionnel)**
+* Alertmanager
+
+Alertmanager complète Prometheus en envoyant des alertes (Slack, e-mail…) lors d’anomalies.
+
+L’UI est disponible sur [http://localhost:9093](http://localhost/9093).
+
+Configuration : observability/alertmanager.yml.
+
+* Tests de montée en charge (Locust)
+
+Locust est intégré pour tester la performance et la scalabilité.
+
+UI : [http://localhost:8089](http://localhost:8089).
+
+Exemple : lancer 100 utilisateurs virtuels avec un ramp-up de 5/s pour simuler du trafic.
+
+Les scénarios de test se trouvent dans tests/load/load_test.py.
 
 ### Mise à jour
 
@@ -206,7 +245,7 @@ docker compose up -d
 Utilisez `docker compose build` seulement si vous modifiez le code ou les Dockerfile locaux.
 ---
 
-## 9️⃣ Arrêt de l’Application
+## 🔟  Arrêt de l’Application
 
 Pour arrêter proprement tous les services :
 
@@ -222,7 +261,7 @@ docker compose down -v
 
 ---
 
-## 🔟 Structure du Projet
+## Structure du Projet
 
 * `/CI-CD` : configuration Docker Compose pour l’orchestration globale (point d’entrée).
 * `/{customer-api, product-api, order-api}` : code source des microservices.
@@ -232,7 +271,7 @@ docker compose down -v
 
 ---
 
-## ✅ Points à ajouter pour une documentation optimale
+## Points à ajouter pour une documentation optimale
 
 * **Pipelines CI/CD** : exécuter les tests (`pytest`), calculer la couverture, builder et pousser les images Docker sur GHCR, puis déployer automatiquement (optionnel).
 
